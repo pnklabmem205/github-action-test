@@ -65,7 +65,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
-          port: 24
+          port: 23
           # timeout: 30s  # 연결 타임아웃 (기본값: 30s)
           envs: GHCR_TOKEN
           script: |
@@ -79,6 +79,6 @@ jobs:
             docker stop app 2>/dev/null || true
             docker rm app 2>/dev/null || true
             echo "Run new container..."
-            docker run -d --name app --restart unless-stopped -p 3000:3000 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker run -d --name app --restart unless-stopped -p 8888:3000 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             docker image prune -f
             echo "Deploy done."
