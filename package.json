@@ -1,0 +1,12 @@
+{
+  "name": "githubactiontest",
+  "version": "1.0.0",
+  "description": "Minimal app for GitHub Actions CI/CD demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

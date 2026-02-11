@@ -1,0 +1,39 @@
+name: Hello World
+
+on:
+  workflow_dispatch:  # 수동 실행 가능
+  push:
+    branches: [ main ]
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Say Hello
+        run: |
+          echo "Hello, GitHub Actions! 🚀"
+          echo "This is your first workflow."
+      
+      - name: Display information
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Current time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      
+      - name: Generate simple report
+        id: report
+        run: |
+          echo "::set-output name=status::success"
+          echo "::set-output name=timestamp::$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "::set-output name=duration::5"
+      
+      - name: Display report
+        run: |
+          echo "Workflow Status: ${{ steps.report.outputs.status }}"
+          echo "Timestamp: ${{ steps.report.outputs.timestamp }}"
+          echo "Duration: ${{ steps.report.outputs.duration }}s"
