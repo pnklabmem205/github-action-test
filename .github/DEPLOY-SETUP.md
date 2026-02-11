@@ -44,6 +44,40 @@
 
 ## 5. 트러블슈팅
 
-- **SSH 연결 실패**: `SERVER_HOST`, `SERVER_USER`, `SSH_PASSWORD`가 맞는지 확인. 서버에서 비밀번호 로그인이 허용돼 있는지 확인하세요. (`PasswordAuthentication yes` 등)
+### SSH 연결 실패 (`dial tcp ***:22: i/o timeout`)
+
+**가능한 원인:**
+
+1. **서버가 외부에서 접근 불가능**
+   - 로컬 네트워크(`192.168.x.x`, `10.x.x.x` 등)에 있으면 GitHub Actions 러너에서 접근 불가
+   - **해결**: 공인 IP 할당 또는 VPN/터널링 필요
+
+2. **방화벽에서 포트 22 차단**
+   - 서버 방화벽 또는 클라우드 보안 그룹에서 SSH 포트(22) 차단
+   - **해결**: 포트 22 열기
+     ```bash
+     # Ubuntu/Debian
+     sudo ufw allow 22/tcp
+     sudo ufw reload
+     ```
+
+3. **SERVER_HOST 값 오류**
+   - 잘못된 IP/도메인 또는 내부 IP 사용
+   - **해결**: 공인 IP 또는 외부 접근 가능한 도메인 사용
+
+4. **SSH 서비스 미실행**
+   - **해결**: SSH 서비스 확인
+     ```bash
+     sudo systemctl status ssh
+     sudo systemctl start ssh
+     ```
+
+5. **비표준 SSH 포트 사용**
+   - SSH가 22가 아닌 다른 포트 사용 시
+   - **해결**: 워크플로에 `port: <포트번호>` 추가 필요
+
+### 기타 문제
+
+- **비밀번호 로그인 실패**: 서버에서 `PasswordAuthentication yes` 설정 확인 (`/etc/ssh/sshd_config`)
 - **docker pull 실패**: 비공개 이미지면 `GHCR_TOKEN` 설정 및 서버에서 `echo "$GHCR_TOKEN" | docker login ghcr.io -u <GitHub사용자명> --password-stdin` 동작 여부 확인.
 - **포트 충돌**: 서버에서 이미 3000 포트를 쓰면 `docker run`의 `-p` 값을 바꾸거나, 워크플로의 `-p 3000:3000` 부분을 수정하세요.

@@ -64,6 +64,8 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
+          port: 24
+          # timeout: 30s  # 연결 타임아웃 (기본값: 30s)
           envs: GHCR_TOKEN
           script: |
             set -e
