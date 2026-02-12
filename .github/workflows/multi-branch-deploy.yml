@@ -440,15 +440,22 @@ jobs:
           script: |
             set -e
             echo "🚀 프로덕션 배포 시작..."
+            
+            echo "기존 컨테이너 정리 (이름 또는 8888 포트 사용 중인 것)..."
+            docker stop app-prod -t 10 2>/dev/null || true
+            docker rm -f app-prod 2>/dev/null || true
+            for cid in $(docker ps -q --filter "publish=8888"); do
+              echo "포트 8888 사용 중인 컨테이너 제거: $cid"
+              docker stop "$cid" -t 10 2>/dev/null || true
+              docker rm -f "$cid" 2>/dev/null || true
+            done
+            sleep 2
+            
             echo "Pull latest image..."
             if [ -n "$GHCR_TOKEN" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             fi
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            
-            echo "Stop old container..."
-            docker stop app-prod 2>/dev/null || true
-            docker rm app-prod 2>/dev/null || true
             
             echo "Run new container..."
             docker run -d \
