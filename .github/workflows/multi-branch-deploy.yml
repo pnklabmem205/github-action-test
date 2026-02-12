@@ -41,33 +41,21 @@ jobs:
           # 예: feature/dev1, feature/dev2, feature/dev3, feature/dev4
           # 또는 dev/dev1, dev/dev2 등
           
-          # 브랜치 이름을 기반으로 서버/포트 매핑
+          # 브랜치 이름을 기반으로 포트만 매핑 (4개 브랜치 모두 같은 테스트 서버 사용)
           case "$BRANCH_NAME" in
             feature/dev1|dev/dev1)
-              echo "server_host=DEV1_SERVER_HOST" >> $GITHUB_OUTPUT
-              echo "server_user=DEV1_SERVER_USER" >> $GITHUB_OUTPUT
-              echo "ssh_password=DEV1_SSH_PASSWORD" >> $GITHUB_OUTPUT
               echo "deploy_port=9901" >> $GITHUB_OUTPUT
               echo "developer=dev1" >> $GITHUB_OUTPUT
               ;;
             feature/dev2|dev/dev2)
-              echo "server_host=DEV2_SERVER_HOST" >> $GITHUB_OUTPUT
-              echo "server_user=DEV2_SERVER_USER" >> $GITHUB_OUTPUT
-              echo "ssh_password=DEV2_SSH_PASSWORD" >> $GITHUB_OUTPUT
               echo "deploy_port=9902" >> $GITHUB_OUTPUT
               echo "developer=dev2" >> $GITHUB_OUTPUT
               ;;
             feature/dev3|dev/dev3)
-              echo "server_host=DEV3_SERVER_HOST" >> $GITHUB_OUTPUT
-              echo "server_user=DEV3_SERVER_USER" >> $GITHUB_OUTPUT
-              echo "ssh_password=DEV3_SSH_PASSWORD" >> $GITHUB_OUTPUT
               echo "deploy_port=9903" >> $GITHUB_OUTPUT
               echo "developer=dev3" >> $GITHUB_OUTPUT
               ;;
             feature/dev4|dev/dev4)
-              echo "server_host=DEV4_SERVER_HOST" >> $GITHUB_OUTPUT
-              echo "server_user=DEV4_SERVER_USER" >> $GITHUB_OUTPUT
-              echo "ssh_password=DEV4_SSH_PASSWORD" >> $GITHUB_OUTPUT
               echo "deploy_port=9904" >> $GITHUB_OUTPUT
               echo "developer=dev4" >> $GITHUB_OUTPUT
               ;;
@@ -122,9 +110,9 @@ jobs:
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
         with:
-          host: ${{ secrets.DEV1_SERVER_HOST }}
-          username: ${{ secrets.DEV1_SERVER_USER }}
-          password: ${{ secrets.DEV1_SSH_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 23
           envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
           script: |
@@ -155,7 +143,7 @@ jobs:
             docker image prune -f
             
             echo "✅ 배포 완료!"
-            echo "테스트 URL: http://${{ secrets.DEV1_SERVER_HOST }}:$DEPLOY_PORT"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
             echo "컨테이너 이름: app-dev1"
 
       - name: Deploy to test server (dev2)
@@ -166,9 +154,9 @@ jobs:
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
         with:
-          host: ${{ secrets.DEV2_SERVER_HOST }}
-          username: ${{ secrets.DEV2_SERVER_USER }}
-          password: ${{ secrets.DEV2_SSH_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 23
           envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
           script: |
@@ -199,7 +187,7 @@ jobs:
             docker image prune -f
             
             echo "✅ 배포 완료!"
-            echo "테스트 URL: http://${{ secrets.DEV2_SERVER_HOST }}:$DEPLOY_PORT"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
             echo "컨테이너 이름: app-dev2"
 
       - name: Deploy to test server (dev3)
@@ -210,9 +198,9 @@ jobs:
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
         with:
-          host: ${{ secrets.DEV3_SERVER_HOST }}
-          username: ${{ secrets.DEV3_SERVER_USER }}
-          password: ${{ secrets.DEV3_SSH_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 23
           envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
           script: |
@@ -243,7 +231,7 @@ jobs:
             docker image prune -f
             
             echo "✅ 배포 완료!"
-            echo "테스트 URL: http://${{ secrets.DEV3_SERVER_HOST }}:$DEPLOY_PORT"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
             echo "컨테이너 이름: app-dev3"
 
       - name: Deploy to test server (dev4)
@@ -254,9 +242,9 @@ jobs:
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
         with:
-          host: ${{ secrets.DEV4_SERVER_HOST }}
-          username: ${{ secrets.DEV4_SERVER_USER }}
-          password: ${{ secrets.DEV4_SSH_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 23
           envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
           script: |
@@ -287,7 +275,7 @@ jobs:
             docker image prune -f
             
             echo "✅ 배포 완료!"
-            echo "테스트 URL: http://${{ secrets.DEV4_SERVER_HOST }}:$DEPLOY_PORT"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
             echo "컨테이너 이름: app-dev4"
 
       - name: Comment deployment info
@@ -304,17 +292,8 @@ jobs:
             const port = process.env.DEPLOY_PORT;
             const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
             
-            // 개발자별 서버 호스트 가져오기
-            let serverHost = '';
-            if (developer === 'dev1') {
-              serverHost = '${{ secrets.DEV1_SERVER_HOST }}';
-            } else if (developer === 'dev2') {
-              serverHost = '${{ secrets.DEV2_SERVER_HOST }}';
-            } else if (developer === 'dev3') {
-              serverHost = '${{ secrets.DEV3_SERVER_HOST }}';
-            } else if (developer === 'dev4') {
-              serverHost = '${{ secrets.DEV4_SERVER_HOST }}';
-            }
+            // 4개 브랜치 모두 같은 테스트 서버 사용
+            const serverHost = '${{ secrets.SERVER_HOST }}';
             
             const message = `${status} **테스트 배포 완료**
             
