@@ -36,6 +36,9 @@ jobs:
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          # Docker 태그는 / 불가 → feature/dev2 → feature-dev2
+          IMAGE_TAG="${BRANCH_NAME//\//-}"
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           
           # 브랜치 이름에서 개발자/서버 정보 추출
           # 예: feature/dev1, feature/dev2, feature/dev3, feature/dev4
@@ -89,7 +92,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=
-            type=raw,value=${{ steps.branch-info.outputs.branch_name }}
+            type=raw,value=${{ steps.branch-info.outputs.image_tag }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -109,12 +112,13 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: 23
-          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
           script: |
             set -e
             echo "🚀 [dev1] 테스트 서버 배포 시작..."
@@ -125,7 +129,7 @@ jobs:
             if [ -n "$GHCR_TOKEN" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             fi
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             echo "Stop old container (if any)..."
             docker stop app-dev1 2>/dev/null || true
@@ -138,7 +142,7 @@ jobs:
               -p $DEPLOY_PORT:3000 \
               -e BRANCH_NAME="$BRANCH_NAME" \
               -e DEVELOPER="dev1" \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             docker image prune -f
             
@@ -153,12 +157,13 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: 23
-          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
           script: |
             set -e
             echo "🚀 [dev2] 테스트 서버 배포 시작..."
@@ -169,7 +174,7 @@ jobs:
             if [ -n "$GHCR_TOKEN" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             fi
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             echo "Stop old container (if any)..."
             docker stop app-dev2 2>/dev/null || true
@@ -182,7 +187,7 @@ jobs:
               -p $DEPLOY_PORT:3000 \
               -e BRANCH_NAME="$BRANCH_NAME" \
               -e DEVELOPER="dev2" \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             docker image prune -f
             
@@ -197,12 +202,13 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: 23
-          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
           script: |
             set -e
             echo "🚀 [dev3] 테스트 서버 배포 시작..."
@@ -213,7 +219,7 @@ jobs:
             if [ -n "$GHCR_TOKEN" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             fi
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             echo "Stop old container (if any)..."
             docker stop app-dev3 2>/dev/null || true
@@ -226,7 +232,7 @@ jobs:
               -p $DEPLOY_PORT:3000 \
               -e BRANCH_NAME="$BRANCH_NAME" \
               -e DEVELOPER="dev3" \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             docker image prune -f
             
@@ -241,12 +247,13 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
           BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: 23
-          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
           script: |
             set -e
             echo "🚀 [dev4] 테스트 서버 배포 시작..."
@@ -257,7 +264,7 @@ jobs:
             if [ -n "$GHCR_TOKEN" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             fi
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             echo "Stop old container (if any)..."
             docker stop app-dev4 2>/dev/null || true
@@ -270,7 +277,7 @@ jobs:
               -p $DEPLOY_PORT:3000 \
               -e BRANCH_NAME="$BRANCH_NAME" \
               -e DEVELOPER="dev4" \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$BRANCH_NAME
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
             
             docker image prune -f
             
