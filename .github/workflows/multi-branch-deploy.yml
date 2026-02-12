@@ -47,28 +47,28 @@ jobs:
               echo "server_host=DEV1_SERVER_HOST" >> $GITHUB_OUTPUT
               echo "server_user=DEV1_SERVER_USER" >> $GITHUB_OUTPUT
               echo "ssh_password=DEV1_SSH_PASSWORD" >> $GITHUB_OUTPUT
-              echo "deploy_port=9001" >> $GITHUB_OUTPUT
+              echo "deploy_port=9901" >> $GITHUB_OUTPUT
               echo "developer=dev1" >> $GITHUB_OUTPUT
               ;;
             feature/dev2|dev/dev2)
               echo "server_host=DEV2_SERVER_HOST" >> $GITHUB_OUTPUT
               echo "server_user=DEV2_SERVER_USER" >> $GITHUB_OUTPUT
               echo "ssh_password=DEV2_SSH_PASSWORD" >> $GITHUB_OUTPUT
-              echo "deploy_port=9002" >> $GITHUB_OUTPUT
+              echo "deploy_port=9902" >> $GITHUB_OUTPUT
               echo "developer=dev2" >> $GITHUB_OUTPUT
               ;;
             feature/dev3|dev/dev3)
               echo "server_host=DEV3_SERVER_HOST" >> $GITHUB_OUTPUT
               echo "server_user=DEV3_SERVER_USER" >> $GITHUB_OUTPUT
               echo "ssh_password=DEV3_SSH_PASSWORD" >> $GITHUB_OUTPUT
-              echo "deploy_port=9003" >> $GITHUB_OUTPUT
+              echo "deploy_port=9903" >> $GITHUB_OUTPUT
               echo "developer=dev3" >> $GITHUB_OUTPUT
               ;;
             feature/dev4|dev/dev4)
               echo "server_host=DEV4_SERVER_HOST" >> $GITHUB_OUTPUT
               echo "server_user=DEV4_SERVER_USER" >> $GITHUB_OUTPUT
               echo "ssh_password=DEV4_SSH_PASSWORD" >> $GITHUB_OUTPUT
-              echo "deploy_port=9004" >> $GITHUB_OUTPUT
+              echo "deploy_port=9904" >> $GITHUB_OUTPUT
               echo "developer=dev4" >> $GITHUB_OUTPUT
               ;;
             *)
