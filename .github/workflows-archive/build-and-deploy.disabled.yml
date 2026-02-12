@@ -1,4 +1,5 @@
 # Push → 빌드 → Docker 이미지 푸시 → 로컬 서버 배포
+# 보관용: multi-branch-deploy가 main 배포 담당하므로 사용 안 함
 name: Build and Deploy
 
 on:

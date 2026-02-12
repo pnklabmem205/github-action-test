@@ -432,9 +432,9 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
-          host: ${{ secrets.PROD_SERVER_HOST }}
-          username: ${{ secrets.PROD_SERVER_USER }}
-          password: ${{ secrets.PROD_SSH_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 23
           envs: GHCR_TOKEN
           script: |
