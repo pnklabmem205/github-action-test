@@ -1,0 +1,461 @@
+# 다중 브랜치 개발 워크플로우
+# 각 브랜치 → 각자 테스트 서버/포트에 배포
+# main 머지 → 프로덕션 배포
+
+name: Multi-Branch Development Deploy
+
+on:
+  push:
+    branches:
+      - 'feature/**'  # feature/* 브랜치들
+      - 'dev/**'      # dev/* 브랜치들
+      - main
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 각 브랜치별 테스트 배포
+  deploy-to-test-server:
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      # contents: write → 커밋 댓글(createCommitComment) 생성에 필요 (없으면 403)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract branch info
+        id: branch-info
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          # Docker 태그는 / 불가 → feature/dev2 → feature-dev2
+          IMAGE_TAG="${BRANCH_NAME//\//-}"
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          
+          # 브랜치 이름에서 개발자/서버 정보 추출
+          # 예: feature/dev1, feature/dev2, feature/dev3, feature/dev4
+          # 또는 dev/dev1, dev/dev2 등
+          
+          # 브랜치 이름을 기반으로 포트만 매핑 (4개 브랜치 모두 같은 테스트 서버 사용)
+          case "$BRANCH_NAME" in
+            feature/dev1|dev/dev1)
+              echo "deploy_port=9901" >> $GITHUB_OUTPUT
+              echo "developer=dev1" >> $GITHUB_OUTPUT
+              ;;
+            feature/dev2|dev/dev2)
+              echo "deploy_port=9902" >> $GITHUB_OUTPUT
+              echo "developer=dev2" >> $GITHUB_OUTPUT
+              ;;
+            feature/dev3|dev/dev3)
+              echo "deploy_port=9903" >> $GITHUB_OUTPUT
+              echo "developer=dev3" >> $GITHUB_OUTPUT
+              ;;
+            feature/dev4|dev/dev4)
+              echo "deploy_port=9904" >> $GITHUB_OUTPUT
+              echo "developer=dev4" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "server_host=UNKNOWN" >> $GITHUB_OUTPUT
+              echo "deploy_port=0" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Check if branch is supported
+        if: steps.branch-info.outputs.server_host == 'UNKNOWN'
+        run: |
+          echo "❌ 지원하지 않는 브랜치입니다: ${{ github.ref }}"
+          echo "지원되는 브랜치: feature/dev1, feature/dev2, feature/dev3, feature/dev4"
+          exit 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=${{ steps.branch-info.outputs.image_tag }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to test server (dev1)
+        if: steps.branch-info.outputs.developer == 'dev1'
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
+          BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 23
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
+          script: |
+            set -e
+            echo "🚀 [dev1] 테스트 서버 배포 시작..."
+            echo "브랜치: $BRANCH_NAME"
+            echo "포트: $DEPLOY_PORT"
+            
+            echo "Pull latest image..."
+            if [ -n "$GHCR_TOKEN" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            fi
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            echo "Stop old container (if any)..."
+            docker stop app-dev1 2>/dev/null || true
+            docker rm app-dev1 2>/dev/null || true
+            
+            echo "Run new container on port $DEPLOY_PORT..."
+            docker run -d \
+              --name app-dev1 \
+              --restart unless-stopped \
+              -p $DEPLOY_PORT:3000 \
+              -e BRANCH_NAME="$BRANCH_NAME" \
+              -e DEVELOPER="dev1" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            docker image prune -f
+            
+            echo "✅ 배포 완료!"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
+            echo "컨테이너 이름: app-dev1"
+
+      - name: Deploy to test server (dev2)
+        if: steps.branch-info.outputs.developer == 'dev2'
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
+          BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 23
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
+          script: |
+            set -e
+            echo "🚀 [dev2] 테스트 서버 배포 시작..."
+            echo "브랜치: $BRANCH_NAME"
+            echo "포트: $DEPLOY_PORT"
+            
+            echo "Pull latest image..."
+            if [ -n "$GHCR_TOKEN" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            fi
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            echo "Stop old container (if any)..."
+            docker stop app-dev2 2>/dev/null || true
+            docker rm app-dev2 2>/dev/null || true
+            
+            echo "Run new container on port $DEPLOY_PORT..."
+            docker run -d \
+              --name app-dev2 \
+              --restart unless-stopped \
+              -p $DEPLOY_PORT:3000 \
+              -e BRANCH_NAME="$BRANCH_NAME" \
+              -e DEVELOPER="dev2" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            docker image prune -f
+            
+            echo "✅ 배포 완료!"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
+            echo "컨테이너 이름: app-dev2"
+
+      - name: Deploy to test server (dev3)
+        if: steps.branch-info.outputs.developer == 'dev3'
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
+          BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 23
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
+          script: |
+            set -e
+            echo "🚀 [dev3] 테스트 서버 배포 시작..."
+            echo "브랜치: $BRANCH_NAME"
+            echo "포트: $DEPLOY_PORT"
+            
+            echo "Pull latest image..."
+            if [ -n "$GHCR_TOKEN" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            fi
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            echo "Stop old container (if any)..."
+            docker stop app-dev3 2>/dev/null || true
+            docker rm app-dev3 2>/dev/null || true
+            
+            echo "Run new container on port $DEPLOY_PORT..."
+            docker run -d \
+              --name app-dev3 \
+              --restart unless-stopped \
+              -p $DEPLOY_PORT:3000 \
+              -e BRANCH_NAME="$BRANCH_NAME" \
+              -e DEVELOPER="dev3" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            docker image prune -f
+            
+            echo "✅ 배포 완료!"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
+            echo "컨테이너 이름: app-dev3"
+
+      - name: Deploy to test server (dev4)
+        if: steps.branch-info.outputs.developer == 'dev4'
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
+          BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          IMAGE_TAG: ${{ steps.branch-info.outputs.image_tag }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 23
+          envs: GHCR_TOKEN,DEPLOY_PORT,BRANCH_NAME,IMAGE_TAG
+          script: |
+            set -e
+            echo "🚀 [dev4] 테스트 서버 배포 시작..."
+            echo "브랜치: $BRANCH_NAME"
+            echo "포트: $DEPLOY_PORT"
+            
+            echo "Pull latest image..."
+            if [ -n "$GHCR_TOKEN" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            fi
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            echo "Stop old container (if any)..."
+            docker stop app-dev4 2>/dev/null || true
+            docker rm app-dev4 2>/dev/null || true
+            
+            echo "Run new container on port $DEPLOY_PORT..."
+            docker run -d \
+              --name app-dev4 \
+              --restart unless-stopped \
+              -p $DEPLOY_PORT:3000 \
+              -e BRANCH_NAME="$BRANCH_NAME" \
+              -e DEVELOPER="dev4" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            
+            docker image prune -f
+            
+            echo "✅ 배포 완료!"
+            echo "테스트 URL: http://${{ secrets.SERVER_HOST }}:$DEPLOY_PORT"
+            echo "컨테이너 이름: app-dev4"
+
+      - name: Comment deployment info
+        uses: actions/github-script@v7
+        if: always()
+        continue-on-error: true
+        env:
+          DEVELOPER: ${{ steps.branch-info.outputs.developer }}
+          BRANCH_NAME: ${{ steps.branch-info.outputs.branch_name }}
+          DEPLOY_PORT: ${{ steps.branch-info.outputs.deploy_port }}
+        with:
+          script: |
+            const developer = process.env.DEVELOPER;
+            const branchName = process.env.BRANCH_NAME;
+            const port = process.env.DEPLOY_PORT;
+            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
+            
+            // 4개 브랜치 모두 같은 테스트 서버 사용
+            const serverHost = '${{ secrets.SERVER_HOST }}';
+            
+            const message = `${status} **테스트 배포 완료**
+            
+            - 개발자: **${developer}**
+            - 브랜치: \`${branchName}\`
+            - 테스트 URL: http://${serverHost}:${port}
+            - 이미지: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${branchName}\`
+            - 상태: ${status === '✅' ? '성공' : '실패'}
+            `;
+            
+            // 커밋에 댓글 추가
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            });
+
+  # PR 생성 시: 빌드 및 테스트만 (배포 안 함)
+  pr-build-and-test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=pr-
+            type=raw,value=pr-${{ github.event.pull_request.number }}
+
+      - name: Build Docker image (test only)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Comment PR with build status
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
+            const message = `${status} **빌드 및 테스트 완료**
+            
+            - 이미지: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}\`
+            - 상태: ${status === '✅' ? '성공' : '실패'}
+            - 커밋: \`${{ github.event.pull_request.head.sha }}\`
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+  # main 브랜치에 머지되면 프로덕션 배포
+  deploy-to-production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          password: ${{ secrets.PROD_SSH_PASSWORD }}
+          port: 23
+          envs: GHCR_TOKEN
+          script: |
+            set -e
+            echo "🚀 프로덕션 배포 시작..."
+            echo "Pull latest image..."
+            if [ -n "$GHCR_TOKEN" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            fi
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            echo "Stop old container..."
+            docker stop app-prod 2>/dev/null || true
+            docker rm app-prod 2>/dev/null || true
+            
+            echo "Run new container..."
+            docker run -d \
+              --name app-prod \
+              --restart unless-stopped \
+              -p 8888:3000 \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            docker image prune -f
+            echo "✅ 프로덕션 배포 완료!"
